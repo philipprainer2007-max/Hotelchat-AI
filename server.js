@@ -13,44 +13,40 @@ app.get('/', (req, res) => {
 
 app.post('/api/chat', async (req, res) => {
   const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY;
+  console.log('API Key present:', !!ANTHROPIC_API_KEY);
+  
   if (!ANTHROPIC_API_KEY) {
-    return res.status(500).json({ error: 'ANTHROPIC_API_KEY not set' });
+    return res.status(500).json({ error: 'No API key' });
   }
+
   try {
     const fetch = (await import('node-fetch')).default;
+    
+    const body = {
+      model: 'claude-sonnet-4-20250514',
+      max_tokens: 1024,
+      system: req.body.system,
+      messages: req.body.messages
+    };
+
+    console.log('Calling Anthropic API...');
+    
     const response = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         'x-api-key': ANTHROPIC_API_KEY,
-        'anthropic-version': '2023-06-01',
-        'anthropic-beta': 'web-search-2025-03-05'
+        'anthropic-version': '2023-06-01'
       },
-      body: JSON.stringify(req.body)
+      body: JSON.stringify(body)
     });
+
     const data = await response.json();
-    if (data.stop_reason === 'tool_use') {
-      const toolBlock = data.content.find(b => b.type === 'tool_use');
-      const msgs2 = [
-        ...req.body.messages,
-        { role: 'assistant', content: data.content },
-        { role: 'user', content: [{ type: 'tool_result', tool_use_id: toolBlock.id, content: 'Search completed.' }] }
-      ];
-      const response2 = await fetch('https://api.anthropic.com/v1/messages', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'x-api-key': ANTHROPIC_API_KEY,
-          'anthropic-version': '2023-06-01',
-          'anthropic-beta': 'web-search-2025-03-05'
-        },
-        body: JSON.stringify({ ...req.body, messages: msgs2 })
-      });
-      const data2 = await response2.json();
-      return res.json(data2);
-    }
+    console.log('Response:', JSON.stringify(data).substring(0, 200));
     return res.json(data);
+
   } catch (err) {
+    console.error('Error:', err.message);
     res.status(500).json({ error: err.message });
   }
 });
