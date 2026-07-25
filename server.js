@@ -23,7 +23,7 @@ app.post('/api/chat', async (req, res) => {
     const fetch = (await import('node-fetch')).default;
     
     const body = {
-      model: 'claude-sonnet-4-20250514',
+  model: 'claude-sonnet-4-5',
       max_tokens: 1024,
       system: req.body.system,
       messages: req.body.messages
