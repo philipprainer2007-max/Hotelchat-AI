@@ -8,8 +8,7 @@ app.use(cors());
 app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public')));
 
-const DATA_DIR = '/tmp';
-const DATA_FILE = path.join(DATA_DIR, 'hotels.json');
+const DATA_FILE = '/tmp/hotels.json';
 
 const DEFAULT_HOTELS = [
   {id:'grand-horizon',name:'Grand Horizon Hotel',location:'45 Seafront Promenade, Miami Beach, FL 33139',emoji:'🏖️',checkin:'3:00 PM',checkout:'11:00 AM',pools:'2 pools — heated outdoor infinity pool (7am–10pm), indoor pool (6am–11pm)',dining:'Horizon Grill open daily 6:30am–11pm. Rooftop bar Skyline 5pm–1am.',rooms:'210 rooms: Standard, Deluxe, Junior Suite, Executive Suite, Penthouse.',other:'Free Wi-Fi. Valet $35/night. Spa 8am–9pm. 24/7 gym. Pets under 10kg ($50/night). Airport transfer $45.',phone:'+1 (305) 555-0198',email:'concierge@grandhorizon.com',status:'active',chats:284,color:'#1a1a2e'},
@@ -17,79 +16,65 @@ const DEFAULT_HOTELS = [
   {id:'palazzo-venezia',name:'Palazzo Venezia',location:'Calle del Carbon 4325, Venice, Italy',emoji:'🛶',checkin:'3:00 PM',checkout:'12:00 PM',pools:'Rooftop terrace with canal views and hot tub.',dining:'Ristorante open breakfast, lunch, dinner.',rooms:'42 rooms overlooking Grand Canal.',other:'Free water taxi from airport. 24/7 concierge. Free Wi-Fi.',phone:'+39 041 520 0100',email:'info@palazzovenezia.it',status:'draft',chats:12,color:'#1a1a2e'}
 ];
 
-function loadHotels() {
-  try {
-    if (fs.existsSync(DATA_FILE)) {
-      return JSON.parse(fs.readFileSync(DATA_FILE, 'utf8'));
-    }
-  } catch(e) {}
+function loadHotels(){
+  try{
+    if(fs.existsSync(DATA_FILE)) return JSON.parse(fs.readFileSync(DATA_FILE,'utf8'));
+  }catch(e){}
   return [...DEFAULT_HOTELS];
 }
 
-function saveHotels(hotels) {
-  try {
-    fs.writeFileSync(DATA_FILE, JSON.stringify(hotels, null, 2));
-  } catch(e) {
-    console.error('Save error:', e.message);
-  }
+function saveHotels(hotels){
+  try{ fs.writeFileSync(DATA_FILE,JSON.stringify(hotels,null,2)); }
+  catch(e){ console.error('Save error:',e.message); }
 }
 
-app.get('/api/hotels', (req, res) => {
-  res.json(loadHotels());
-});
+app.get('/api/hotels',(req,res)=>{ res.json(loadHotels()); });
 
-app.post('/api/hotels', (req, res) => {
-  const hotels = loadHotels();
-  const hotel = req.body;
-  const idx = hotels.findIndex(h => h.id === hotel.id);
-  if (idx >= 0) hotels[idx] = hotel;
-  else hotels.unshift(hotel);
+app.post('/api/hotels',(req,res)=>{
+  const hotels=loadHotels();
+  const hotel=req.body;
+  const idx=hotels.findIndex(h=>h.id===hotel.id);
+  if(idx>=0) hotels[idx]=hotel; else hotels.unshift(hotel);
   saveHotels(hotels);
-  res.json({ success: true, hotels });
+  res.json({success:true,hotels});
 });
 
-app.put('/api/hotels/:id', (req, res) => {
-  const hotels = loadHotels();
-  const idx = hotels.findIndex(h => h.id === req.params.id);
-  if (idx >= 0) {
-    hotels[idx] = { ...hotels[idx], ...req.body };
-    saveHotels(hotels);
-    res.json({ success: true });
-  } else {
-    res.status(404).json({ error: 'Not found' });
-  }
+app.put('/api/hotels/:id',(req,res)=>{
+  const hotels=loadHotels();
+  const idx=hotels.findIndex(h=>h.id===req.params.id);
+  if(idx>=0){ hotels[idx]={...hotels[idx],...req.body}; saveHotels(hotels); res.json({success:true}); }
+  else res.status(404).json({error:'Not found'});
 });
 
-app.delete('/api/hotels/:id', (req, res) => {
-  const hotels = loadHotels();
-  saveHotels(hotels.filter(h => h.id !== req.params.id));
-  res.json({ success: true });
+app.post('/api/hotels/:id/chat',(req,res)=>{
+  const hotels=loadHotels();
+  const idx=hotels.findIndex(h=>h.id===req.params.id);
+  if(idx>=0){ hotels[idx].chats=(hotels[idx].chats||0)+1; saveHotels(hotels); }
+  res.json({success:true});
 });
 
-app.get('/', (req, res) => {
-  res.sendFile(path.join(__dirname, 'public', 'index.html'));
+app.delete('/api/hotels/:id',(req,res)=>{
+  const hotels=loadHotels();
+  saveHotels(hotels.filter(h=>h.id!==req.params.id));
+  res.json({success:true});
 });
 
-app.post('/api/chat', async (req, res) => {
-  const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY;
-  if (!ANTHROPIC_API_KEY) return res.status(500).json({ error: 'No API key' });
-  try {
-    const fetch = (await import('node-fetch')).default;
-    const response = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-api-key': ANTHROPIC_API_KEY,
-        'anthropic-version': '2023-06-01'
-      },
-      body: JSON.stringify(req.body)
+app.get('/',(req,res)=>{ res.sendFile(path.join(__dirname,'public','index.html')); });
+
+app.post('/api/chat',async(req,res)=>{
+  const ANTHROPIC_API_KEY=process.env.ANTHROPIC_API_KEY;
+  if(!ANTHROPIC_API_KEY) return res.status(500).json({error:'No API key'});
+  try{
+    const fetch=(await import('node-fetch')).default;
+    const response=await fetch('https://api.anthropic.com/v1/messages',{
+      method:'POST',
+      headers:{'Content-Type':'application/json','x-api-key':ANTHROPIC_API_KEY,'anthropic-version':'2023-06-01'},
+      body:JSON.stringify(req.body)
     });
-    const data = await response.json();
+    const data=await response.json();
     return res.json(data);
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
+  }catch(err){ res.status(500).json({error:err.message}); }
 });
 
-const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => console.log(`HotelChat running on port ${PORT}`));
+const PORT=process.env.PORT||3000;
+app.listen(PORT,()=>console.log(`HotelChat running on port ${PORT}`));
