@@ -8,7 +8,7 @@ app.use(cors());
 app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public')));
 
-const DATA_FILE = '/tmp/hotels.json';
+const DATA_FILE = path.join(__dirname, 'data', 'hotels.json');
 
 const DEFAULT_HOTELS = [
   {id:'grand-horizon',name:'Grand Horizon Hotel',location:'45 Seafront Promenade, Miami Beach, FL 33139',emoji:'🏖️',checkin:'3:00 PM',checkout:'11:00 AM',pools:'2 pools — heated outdoor infinity pool (7am–10pm), indoor pool (6am–11pm)',dining:'Horizon Grill open daily 6:30am–11pm. Rooftop bar Skyline 5pm–1am.',rooms:'210 rooms: Standard, Deluxe, Junior Suite, Executive Suite, Penthouse.',other:'Free Wi-Fi. Valet $35/night. Spa 8am–9pm. 24/7 gym. Pets under 10kg ($50/night). Airport transfer $45.',phone:'+1 (305) 555-0198',email:'concierge@grandhorizon.com',status:'active',chats:284,color:'#1a1a2e'},
@@ -20,12 +20,18 @@ function loadHotels(){
   try{
     if(fs.existsSync(DATA_FILE)) return JSON.parse(fs.readFileSync(DATA_FILE,'utf8'));
   }catch(e){}
+  const dir=path.dirname(DATA_FILE);
+  if(!fs.existsSync(dir)) fs.mkdirSync(dir,{recursive:true});
+  saveHotels(DEFAULT_HOTELS);
   return [...DEFAULT_HOTELS];
 }
 
 function saveHotels(hotels){
-  try{ fs.writeFileSync(DATA_FILE,JSON.stringify(hotels,null,2)); }
-  catch(e){ console.error('Save error:',e.message); }
+  try{
+    const dir=path.dirname(DATA_FILE);
+    if(!fs.existsSync(dir)) fs.mkdirSync(dir,{recursive:true});
+    fs.writeFileSync(DATA_FILE,JSON.stringify(hotels,null,2));
+  }catch(e){ console.error('Save error:',e.message); }
 }
 
 app.get('/api/hotels',(req,res)=>{ res.json(loadHotels()); });
